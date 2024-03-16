@@ -1,50 +1,65 @@
+// PRECISA do módulo puppeteer para controle do navegador e { POST } do arquivo addProduct.js para inserção no banco de dados
 const puppeteer = require('puppeteer');
-const fs = require('fs'); //usando p salvar os dados no arquivo local
+const { POST } = require('./api/addProduct.js');
 
-const product = "notebook";
+// Define o produto a ser pesquisado e inicializa variáveis para controle de paginação e armazenamento dos produtos
+const product = "teclado";
 let pag = 1;
 const listProduct = [];
 const notAvaliation = 'Não foi avaliado.';
 
 (async () => {
+    // Inicia o navegador com configurações de dimensões para evitar problemas com o layout da página
     const browser = await puppeteer.launch({
         headless: false, 
-        defaultViewport: { width: 1200, height: 800 } // PRECISA ABRIR A TELA TOTALMENTE, SE NÃO DA ERRO POR CONTA DO LAYOUT DA PAGINA DA KABUM.
+        defaultViewport: { width: 1200, height: 800 } // PRECISA abrir a tela no minimo nessas dimensões, para não dar erro com layout
     });
     const page = await browser.newPage();
   
-    //iniciar navegacao
+    // Navega até a página inicial da Kabum e realiza a busca pelo produto definido
     await page.goto('https://www.kabum.com.br/');
     await page.waitForSelector('#input-busca');
-    await page.type('#input-busca', product); //digita na barra de pesquisa
-
-    await Promise.all([ //pega todos os produtos da pagina
+    await page.type('#input-busca', product); 
+    await Promise.all([ 
         page.waitForNavigation(),
         page.click('.sc-jSgvzq.sc-bkzYnD.bsIXwL.hzpqID')
     ]);
   
-    //Site da kabum só tem a paginação na tela principal de listagem de produtos, 
-    //sendo assim, preciso pegar a url atual toda vez que clico na próxima página
-    let currentUrl = await page.evaluate(() => window.location.href); 
+    // Verifica se existe a mensagem de nenhum produto encontrado e encerra a execução se verdadeiro.
+    const noProductFound = await page.$('.sc-9e19be64-0.bbNoJo') 
+    if (noProductFound) {
+      console.log("Nenhum produto encontrado com o INPUT de pesquisa passado.");
+      await browser.close();
+      return;
+    }
 
-    // Loop principal: Enquanto houver páginas para navegar
-    while (pag <= 3) {
+    // Loop para navegar pelas páginas de produtos e coletar informações.
+    let currentUrl = await page.evaluate(() => window.location.href); 
+    while (pag <= 2) { // AQUI DEFINE QUANTAS PAGINAS DESEJO GARIMPAR
       console.log('pagina', pag);
-      const links = await page.$$eval('.sc-cdc9b13f-7.gHEmMz.productCard > a', el => el.map(link => link.href)); //PEGAR TODOS OS LINKS DOS PRODUTOS DA PAGINA
+      const links = await page.$$eval('.sc-cdc9b13f-7.gHEmMz.productCard > a', el => el.map(link => link.href));
 
       for( const link of links ){
+        // Acessa cada produto individualmente para coletar os detalhes.
         await page.goto(link);
         await page.waitForSelector('.sc-fdfabab6-6.jNQQeD');
   
+        // Extrai os detalhes do produto e trata exceções para campos que podem não estar presentes.
         const title = await page.$eval('.sc-fdfabab6-6.jNQQeD', el => el.innerText);
         const price = await page.$eval('.sc-5492faee-2.ipHrwP.finalPrice', el => el.innerText);
-        const description = await page.$eval('#iframeContainer', el => el.innerText);
-  
-        const screenshotPath = `screenshots/${title.replace(/[/\\?%*:|"<>]/g, '')}.png`; // Remove caracteres inválidos para o nome do arquivo
-        await page.screenshot({path: screenshotPath});
+        let description, imageUrl;
+        try {
+          description = await page.$eval('#iframeContainer', el => el.innerText);
+        } catch (e) {
+          description = "Descrição não disponível.";
+        }
 
-        //nem sempre o produto tem avaliação, essa função garante que não dará erro quando o produto não tiver avaliação.
-        //simplesmente vai tirar isso da array do produto.
+        try {
+          imageUrl = await page.$eval('.iiz__img', img => img.src);
+        } catch (e) {
+          imageUrl = "URL da imagem não disponível.";
+        }
+
         const avaliation = await page.evaluate(() => { 
           const el = document.querySelector('.sc-57aea7be-1.gAjNhT')
           if(!el) return null;
@@ -52,22 +67,34 @@ const notAvaliation = 'Não foi avaliado.';
         })
   
         const feedbacks = await page.$$eval('.sc-8841b8a3-0.dINqTS', elements => elements.map(el => el.innerText));
+
+        // Tira uma screenshot em cada página de produto, e salva na pasta "screenshots" com o titulo do produto.
+        const screenshotPath = `screenshots/${title.replace(/[/\\?%*:|"<>]/g, '')}.png`; // Remove caracteres inválidos para o nome do arquivo
+        await page.screenshot({path: screenshotPath});
   
+        // Constrói o objeto do produto e adiciona à lista se título e preço estiverem presentes.
         const obj = {};
         obj.title = title;
         obj.price = price;
         obj.description = description;
-        (avaliation ? obj.avaliation = avaliation : obj.avaliation = notAvaliation);
+        obj.avaliation = avaliation ? avaliation : notAvaliation;
         obj.feedbacks = feedbacks;
         obj.link = link;
-  
+        obj.image = imageUrl;
+
+        // Verifica se o título e o preço não estão vazios.
+        if (!obj.title || !obj.price) {
+          console.error("Erro: Título ou preço ausente no produto", obj.link);
+          continue; 
+        }
+
         listProduct.push(obj);
       }
 
-      // Volte para a página de listagem de produtos
+      // A paginação só existe na tela principal de listagem de produtos, por isso, pego o URL e sempre que acabar uma página, vou para a página de listagem de produtos.
       await page.goto(currentUrl); 
       
-      // Verifica se existe um botão de próxima página e clica
+      // Navega para a próxima página, se houver.
       const hasNextPage = await page.$('.next');
       if (hasNextPage) {
         await Promise.all([
@@ -82,17 +109,10 @@ const notAvaliation = 'Não foi avaliado.';
         }
         pag++;
     }
-    
-    //transfpormar para JSON
-    const jsonData = JSON.stringify(listProduct, null, 2);
 
-    //salva os dados coletados no arquivo .json
-    fs.writeFile('products.json', jsonData, (err) => {
-      if(err) throw err;
+    // Envia os dados coletados para inserção no banco de dados.
+    await POST(listProduct);
 
-      console.log('dados salvos com sucesso')
-    })
-
-    // Close the browser
+    // Fecha o navegador.
     await browser.close();
 })();
