@@ -17,7 +17,6 @@ model Product {
   price       String
   description String?   @db.LongText
   avaliation  String?   
-  feedbacks   String    @db.LongText
   link        String    @db.LongText
   image       String?   @db.LongText
 }
