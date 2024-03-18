@@ -1,5 +1,6 @@
 # Sistema de Scraping para Coleta de Informações no Marketplace Kabum
 Video apresentando o projeto em funcionamento: https://youtu.be/z28H-0dkfAc
+
 Este projeto demonstra a implementação de um sistema de web scraping utilizando Puppeteer e JavaScript para coletar informações de produtos no marketplace Kabum. O objetivo principal é extrair dados como nome do produto, preço, descrição, avaliações, imagens, e realizar screenshots das páginas de produtos, armazenando-os de forma estruturada para análise posterior.
 
 ## Tecnologias Utilizadas
