@@ -2,7 +2,7 @@
 const puppeteer = require('puppeteer');
 const { POST } = require('./api/addProduct.js');
 
-const product = "teclado";
+const product = "notebook";
 let pag = 1;
 const listProduct = [];
 const notAvaliation = 'Não foi avaliado.';
@@ -10,7 +10,6 @@ let search = 2; // CONTROLADOR DE QUANTAS PÁGINAS DESEJA GARIMPAR  -> 1 Pág = 
 
 (async () => {
     const browser = await puppeteer.launch({
-        headless: false, 
         defaultViewport: { width: 1200, height: 800 } // PRECISA abrir a tela no minimo nessas dimensões, para não dar erro com layout
     });
     const page = await browser.newPage();
