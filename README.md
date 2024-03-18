@@ -24,19 +24,16 @@ Este projeto demonstra a implementação de um sistema de web scraping utilizand
 Antes de iniciar, é necessário ter o Node.js instalado em sua máquina, além do MySQL para armazenamento dos dados.
 
 1. Navegue até o diretório do projeto e instale as dependências:
-  
   -- npm install
 
 ### Conectar com o Banco de dados
 1. Configure o acesso ao banco de dados editando o arquivo .env na raiz do projeto, inserindo as credenciais do seu banco de dados MySQL.
 2. Execute as migrações do Prisma para criar as tabelas no banco de dados:
-   
-  -- npx prisma migrate dev
+   -- npx prisma migrate dev
 
 ### Exeecutando o Script de Scraping
 1. Para iniciar o processo de coleta de dados, execute:
-   
-  -- node index.js
+    -- node index.js
 
 ## Estrutura do Projeto
 1.  index.js: Arquivo principal que executa o script de scraping.
